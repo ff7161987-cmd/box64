@@ -44,6 +44,7 @@
 #include "elfs/elfloader_private.h"
 #include "x64emu.h"
 #include "library.h"
+#include "thread_manager.h"
 #include "core.h"
 #include "env.h"
 #include "dynacache.h"

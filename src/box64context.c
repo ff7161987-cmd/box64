@@ -52,6 +52,7 @@ EXPORTDYN
 void finiAllHelpers(box64context_t* context)
 {
     static int finied = 0;
+#include "thread_manager.h"
     if(finied)
         return;
     fini_pthread_helper(context);
@@ -250,6 +251,7 @@ box64context_t *NewBox64Context(int argc)
     context->uniques = NewMapSymbols();
 
     initAllHelpers(context);
+    Box64ThreadManager_Init();
     
     #ifdef DYNAREC
     context->db_sizes = rbtree_init("db_sizes");
