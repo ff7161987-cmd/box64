@@ -483,8 +483,6 @@ set(OS_LINUX_SRC
     "${BOX64_ROOT}/src/os/random_linux.c"
     "${BOX64_ROOT}/src/os/my_cpuid.c"
     "${BOX64_ROOT}/src/os/sysinfo.c"
-    "${BOX64_ROOT}/src/os/soc_detect.c"
-    "${BOX64_ROOT}/src/os/thread_manager.c"
 )
 
 set(ELFLOADER_SRC
@@ -1097,6 +1095,13 @@ if(ARM_DYNAREC)
         "${BOX64_ROOT}/src/dynarec/hybrid_jit.c"
         "${BOX64_ROOT}/src/dynarec/intelligent_cache.c"
     )
+
+    # ARM-specific OS files (SOC detection, thread pinning)
+    set(ARM_LINUX_SRC
+        "${BOX64_ROOT}/src/os/soc_detect.c"
+        "${BOX64_ROOT}/src/os/thread_manager.c"
+    )
+    set(OS_LINUX_SRC ${OS_LINUX_SRC} ${ARM_LINUX_SRC})
 
     # Advanced ARM64 feature definitions for dynarec
     # These enable hardware-specific optimizations
