@@ -19,6 +19,8 @@ typedef enum {
     CACHE_STRATEGY_HYBRID,          // Adaptive based on frame type
 } cache_strategy_t;
 
+#if defined(__aarch64__) || defined(ARM64) || defined(ARM_DYNAREC)
+
 // Block metadata for intelligent cache
 typedef struct cache_block_meta {
     uintptr_t block_addr;
@@ -216,26 +218,32 @@ static inline uintptr_t Box64IntCache_GetEvictionCandidate(void) {
     return best;
 }
 
-
 #else // Stub implementations for non-ARM platforms
 
 // Stub versions for non-ARM platforms
 typedef struct { int dummy; } cache_stats_t;
 typedef struct { int dummy; } cache_config_t;
+
 #define Box64IntCache_Init() do {} while(0)
 #define Box64IntCache_Destroy() do {} while(0)
+#define Box64IntCache_RegisterBlock(x, n, s, o) ((void)(x), (void)(n), (void)(s), (void)(o))
+#define Box64IntCache_AccessBlock(x) ((void)(x))
+#define Box64IntCache_InvalidateBlock(x) ((void)(x))
+#define Box64IntCache_PinBlock(x) ((void)(x))
+#define Box64IntCache_UnpinBlock(x) ((void)(x))
+#define Box64IntCache_ContainsBlock(x) (false)
+#define Box64IntCache_GetBlockMeta(x) (NULL)
+#define Box64IntCache_BeginFrame(t) ((void)(t))
+#define Box64IntCache_EndFrame() do {} while(0)
 #define Box64IntCache_SetStrategy(s) ((void)(s))
-#define Box64IntCache_GetStrategy() (CACHE_STRATEGY_DEFAULT)
-#define Box64IntCache_SetEnabled(e) ((void)(e))
-#define Box64IntCache_IsEnabled() (false)
-#define Box64IntCache_Reset() do {} while(0)
+#define Box64IntCache_TriggerEviction(b) ((void)(b))
+#define Box64IntCache_ApplyPressure() do {} while(0)
 #define Box64IntCache_GetStats(s) ((void)(s))
-#define Box64IntCache_PinBlock(a) ((void)(a))
-#define Box64IntCache_UnpinBlock(a) ((void)(a))
-#define Box64IntCache_OnFrameStart() do {} while(0)
-#define Box64IntCache_OnFrameEnd() do {} while(0)
-#define Box64IntCache_Configure(c) ((void)(c))
-#define Box64IntCache_GetConfig(c) ((void)(c))
+#define Box64IntCache_GetConfig() (NULL)
+#define Box64IntCache_SetConfig(c) ((void)(c))
+#define Box64IntCache_OnMemoryPressure(c) ((void)(c))
+#define Box64IntCache_IsInCurrentFrameSet(x) (false)
+#define Box64IntCache_GetEvictionCandidate() (0)
 
 #endif // ARM check
 

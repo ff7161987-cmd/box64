@@ -1,8 +1,9 @@
-#ndef __BOX64_HYBRID_JIT_H_
+#ifndef __BOX64_HYBRID_JIT_H_
 #define __BOX64_HYBRID_JIT_H_
 
 #include <stdint.h>
 #include <stdbool.h>
+#include <stddef.h>
 
 // ============================================================================
 // Hybrid JIT System for Box64
@@ -17,6 +18,8 @@ typedef enum {
     JIT_OPT_HOT = 3,            // Hot block JIT with aggressive optimization
     JIT_OPT_PROFILE = 4,       // Profile-guided optimization
 } jit_opt_level_t;
+
+#if defined(__aarch64__) || defined(ARM64) || defined(ARM_DYNAREC)
 
 // Block execution tracking
 typedef struct block_profile {
@@ -209,29 +212,35 @@ static inline uint32_t Box64HybridJIT_GetTimeBudget(void) {
     return g_hybrid_jit.config.max_jit_time_per_frame_ns; // Full budget during loading/menus
 }
 
-
 #else // Stub implementations for non-ARM platforms
 
 // Stub versions for non-ARM platforms
 typedef struct { int dummy; } hybrid_jit_config_t;
-typedef struct { int dummy; } frame_info_t;
 typedef struct { int dummy; } block_profile_t;
+
 #define Box64HybridJIT_Init() do {} while(0)
 #define Box64HybridJIT_Destroy() do {} while(0)
-#define Box64HybridJIT_IsEnabled() (false)
-#define Box64HybridJIT_SetEnabled(e) ((void)(e))
-#define Box64HybridJIT_ShouldCompile(a, s) ((void)(a), (void)(s), JIT_OPT_FAST)
-#define Box64HybridJIT_GetOptLevel(a) ((void)(a), JIT_OPT_FAST)
-#define Box64HybridJIT_ShouldDeoptimize(a) ((void)(a), false)
-#define Box64HybridJIT_RecordAccess(a) ((void)(a))
-#define Box64HybridJIT_UpdateStats() do {} while(0)
-#define Box64HybridJIT_GetStats(s) ((void)(s))
+#define Box64HybridJIT_RecordExecution(a, t) ((void)(a), (void)(t))
+#define Box64HybridJIT_ShouldRecompile(a) ((void)(a), false)
+#define Box64HybridJIT_GetOptimizationLevel(a) ((void)(a), JIT_OPT_FAST)
+#define Box64HybridJIT_MarkForRecompile(a) ((void)(a))
+#define Box64HybridJIT_GetBlockPriority(a) ((void)(a), 0)
+#define Box64HybridJIT_BeginFrame(t) ((void)(t))
+#define Box64HybridJIT_EndFrame() do {} while(0)
+#define Box64HybridJIT_DetectFrameType() (4) // FRAME_TYPE_UNKNOWN
+#define Box64HybridJIT_GetFastCacheSize() (0)
+#define Box64HybridJIT_GetHotCacheSize() (0)
+#define Box64HybridJIT_CleanupCache() do {} while(0)
+#define Box64HybridJIT_SetThermalState(t) ((void)(t))
+#define Box64HybridJIT_SetPowerState(p) ((void)(p))
+#define Box64HybridJIT_GetConfig() (NULL)
+#define Box64HybridJIT_SetConfig(c) ((void)(c))
+#define Box64HybridJIT_GetStats(t, h, tc, r, hc, j) ((void)(t), (void)(h), (void)(tc), (void)(r), (void)(hc), (void)(j))
+#define Box64HybridJIT_EnableProfiling(e) ((void)(e))
+#define Box64HybridJIT_DumpProfiles() do {} while(0)
 #define Box64HybridJIT_ResetStats() do {} while(0)
-#define Box64HybridJIT_OnFrameStart(t) ((void)(t))
-#define Box64HybridJIT_OnFrameEnd() do {} while(0)
+#define Box64HybridJIT_ShouldBeAggressive() (false)
 #define Box64HybridJIT_GetTimeBudget() (0)
-#define Box64HybridJIT_Configure(c) ((void)(c))
-#define Box64HybridJIT_GetConfig(c) ((void)(c))
 
 #endif // ARM check
 
