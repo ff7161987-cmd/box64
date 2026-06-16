@@ -16,6 +16,8 @@
 // Frame-aware caching strategy to reduce stutter
 // ============================================================================
 
+#if defined(__aarch64__) || defined(ARM64) || defined(ARM_DYNAREC)
+
 // Default configuration
 static const cache_config_t default_config = {
     .max_total_size = 128 * 1024 * 1024,     // 128MB default
@@ -619,3 +621,5 @@ void Box64IntCache_Destroy(void) {
     
     pthread_mutex_unlock(&g_intcache_mutex);
 }
+
+#endif // __aarch64__ || ARM64 || ARM_DYNAREC

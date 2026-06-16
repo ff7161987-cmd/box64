@@ -216,4 +216,27 @@ static inline uintptr_t Box64IntCache_GetEvictionCandidate(void) {
     return best;
 }
 
+
+#else // Stub implementations for non-ARM platforms
+
+// Stub versions for non-ARM platforms
+typedef struct { int dummy; } cache_stats_t;
+typedef struct { int dummy; } cache_config_t;
+#define Box64IntCache_Init() do {} while(0)
+#define Box64IntCache_Destroy() do {} while(0)
+#define Box64IntCache_SetStrategy(s) ((void)(s))
+#define Box64IntCache_GetStrategy() (CACHE_STRATEGY_DEFAULT)
+#define Box64IntCache_SetEnabled(e) ((void)(e))
+#define Box64IntCache_IsEnabled() (false)
+#define Box64IntCache_Reset() do {} while(0)
+#define Box64IntCache_GetStats(s) ((void)(s))
+#define Box64IntCache_PinBlock(a) ((void)(a))
+#define Box64IntCache_UnpinBlock(a) ((void)(a))
+#define Box64IntCache_OnFrameStart() do {} while(0)
+#define Box64IntCache_OnFrameEnd() do {} while(0)
+#define Box64IntCache_Configure(c) ((void)(c))
+#define Box64IntCache_GetConfig(c) ((void)(c))
+
+#endif // ARM check
+
 #endif // __BOX64_INTELLIGENT_CACHE_H_

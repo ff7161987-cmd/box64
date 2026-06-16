@@ -17,6 +17,8 @@
 // Dual-mode JIT: Fast JIT + Hot-block Aggressive JIT
 // ============================================================================
 
+#if defined(__aarch64__) || defined(ARM64) || defined(ARM_DYNAREC)
+
 // Nanoseconds per second
 #define NS_PER_SEC 1000000000ULL
 
@@ -648,3 +650,5 @@ void Box64HybridJIT_Destroy(void) {
     
     pthread_mutex_unlock(&g_hybrid_jit_mutex);
 }
+
+#endif // __aarch64__ || ARM64 || ARM_DYNAREC

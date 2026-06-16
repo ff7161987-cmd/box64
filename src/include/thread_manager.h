@@ -10,6 +10,8 @@
 // Big.LITTLE Thread Pinning System
 // ============================================================================
 
+#if defined(__aarch64__) || defined(ARM64) || defined(ARM_DYNAREC)
+
 // Thread types for affinity assignment
 typedef enum {
     THREAD_TYPE_MAIN_EMU = 0,      // Main emulation thread
@@ -137,5 +139,29 @@ void Box64ThreadManager_BigLittleStrategy(void);
 
 // Check if we should use P-cores for given thread type
 bool Box64ThreadManager_ShouldUsePCores(thread_type_t type);
+
+#else // Stub implementations for non-ARM platforms
+
+// Stub versions for non-ARM platforms
+#define Box64ThreadManager_Init() do {} while(0)
+#define Box64ThreadManager_Destroy() do {} while(0)
+#define Box64ThreadManager_PinCurrentThread(t) ((void)(t), 0)
+#define Box64ThreadManager_PinCurrentThreadToCore(c, t) ((void)(c), (void)(t), 0)
+#define Box64ThreadManager_SetAffinityMode(m) ((void)(m))
+#define Box64ThreadManager_GetAffinityMode() (AFFINITY_DISABLED)
+#define Box64ThreadManager_SetDynamicPinning(e) ((void)(e))
+#define Box64ThreadManager_IsDynamicPinning() (false)
+#define Box64ThreadManager_GetStats(c, m) do {} while(0)
+#define Box64ThreadManager_ResetStats() do {} while(0)
+#define Box64ThreadManager_GetLoadBalanceScore(c) ((void)(c), 0)
+#define Box64ThreadManager_PinMainThread() Box64ThreadManager_PinCurrentThread(THREAD_TYPE_MAIN_EMU)
+#define Box64ThreadManager_PinJITThread() Box64ThreadManager_PinCurrentThread(THREAD_TYPE_JIT_COMPILER)
+#define Box64ThreadManager_PinHelperThread() Box64ThreadManager_PinCurrentThread(THREAD_TYPE_HELPER)
+#define Box64ThreadManager_SnapdragonStrategy() do {} while(0)
+#define Box64ThreadManager_DimensityStrategy() do {} while(0)
+#define Box64ThreadManager_BigLittleStrategy() do {} while(0)
+#define Box64ThreadManager_ShouldUsePCores(t) ((void)(t), false)
+
+#endif // ARM check
 
 #endif // __BOX64_THREAD_MANAGER_H_

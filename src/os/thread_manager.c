@@ -16,6 +16,8 @@
 // Big.LITTLE Thread Pinning for Box64
 // ============================================================================
 
+#if defined(__aarch64__) || defined(ARM64) || defined(ARM_DYNAREC)
+
 thread_manager_t g_thread_manager = {
     .initialized = false,
     .mutex = PTHREAD_MUTEX_INITIALIZER,
@@ -585,3 +587,5 @@ void Box64ThreadManager_Destroy(void) {
     
     pthread_mutex_unlock(&g_thread_manager.mutex);
 }
+
+#endif // __aarch64__ || ARM64 || ARM_DYNAREC

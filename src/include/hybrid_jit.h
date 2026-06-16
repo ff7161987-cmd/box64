@@ -209,4 +209,30 @@ static inline uint32_t Box64HybridJIT_GetTimeBudget(void) {
     return g_hybrid_jit.config.max_jit_time_per_frame_ns; // Full budget during loading/menus
 }
 
+
+#else // Stub implementations for non-ARM platforms
+
+// Stub versions for non-ARM platforms
+typedef struct { int dummy; } hybrid_jit_config_t;
+typedef struct { int dummy; } frame_info_t;
+typedef struct { int dummy; } block_profile_t;
+#define Box64HybridJIT_Init() do {} while(0)
+#define Box64HybridJIT_Destroy() do {} while(0)
+#define Box64HybridJIT_IsEnabled() (false)
+#define Box64HybridJIT_SetEnabled(e) ((void)(e))
+#define Box64HybridJIT_ShouldCompile(a, s) ((void)(a), (void)(s), JIT_OPT_FAST)
+#define Box64HybridJIT_GetOptLevel(a) ((void)(a), JIT_OPT_FAST)
+#define Box64HybridJIT_ShouldDeoptimize(a) ((void)(a), false)
+#define Box64HybridJIT_RecordAccess(a) ((void)(a))
+#define Box64HybridJIT_UpdateStats() do {} while(0)
+#define Box64HybridJIT_GetStats(s) ((void)(s))
+#define Box64HybridJIT_ResetStats() do {} while(0)
+#define Box64HybridJIT_OnFrameStart(t) ((void)(t))
+#define Box64HybridJIT_OnFrameEnd() do {} while(0)
+#define Box64HybridJIT_GetTimeBudget() (0)
+#define Box64HybridJIT_Configure(c) ((void)(c))
+#define Box64HybridJIT_GetConfig(c) ((void)(c))
+
+#endif // ARM check
+
 #endif // __BOX64_HYBRID_JIT_H_

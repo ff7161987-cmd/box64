@@ -17,6 +17,13 @@
 
 // ============================================================================
 // SOC Detection Implementation
+// Only compiled for ARM64 targets
+// ============================================================================
+
+#if defined(__aarch64__) || defined(ARM64) || defined(ARM_DYNAREC)
+
+// ============================================================================
+// SOC Detection Implementation
 // Optimized for Snapdragon (Adreno) and MediaTek (Mali/Immortalis)
 // One-time snapshot only - no continuous polling
 // ============================================================================
@@ -711,3 +718,5 @@ int Box64SOC_SetThreadAffinitySingle(uint32_t core_id) {
 int Box64SOC_GetCurrentCore(void) {
     return sched_getcpu();
 }
+
+#endif // __aarch64__ || ARM64 || ARM_DYNAREC

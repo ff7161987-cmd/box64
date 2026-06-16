@@ -9,6 +9,13 @@
 // Optimized for Snapdragon (Adreno) and MediaTek (Mali/Immortalis)
 // ============================================================================
 
+#if defined(__aarch64__) || defined(ARM64) || defined(ARM_DYNAREC)
+
+// ============================================================================
+// SOC (System on Chip) Detection for Box64
+// Optimized for Snapdragon (Adreno) and MediaTek (Mali/Immortalis)
+// ============================================================================
+
 // SOC Vendor Types
 typedef enum {
     SOC_VENDOR_UNKNOWN = 0,
@@ -152,5 +159,35 @@ bool Box64SOC_IsLowMemory(void);
 
 // Cleanup (if needed)
 void Box64SOC_Destroy(void);
+
+#else // Stub implementations for non-ARM platforms
+
+// Stub SOC type for non-ARM platforms
+typedef struct { int dummy; } soc_info_t;
+typedef struct { int dummy; } cpu_core_info_t;
+
+static inline void Box64SOC_Init(void) {}
+static inline const soc_info_t* Box64SOC_GetInfo(void) { return NULL; }
+static inline const cpu_core_info_t* Box64SOC_GetCoreInfo(uint32_t id) { (void)id; return NULL; }
+static inline void Box64SOC_GetPCores(uint32_t** c, uint32_t* n) { (void)c; (void)n; }
+static inline void Box64SOC_GetECores(uint32_t** c, uint32_t* n) { (void)c; (void)n; }
+static inline bool Box64SOC_HasFeature(const char* f) { (void)f; return false; }
+static inline bool Box64SOC_IsSnapdragon(void) { return false; }
+static inline bool Box64SOC_IsDimensity(void) { return false; }
+static inline bool Box64SOC_IsExynos(void) { return false; }
+static inline const char* Box64SOC_GetGPUName(void) { return "Unknown"; }
+static inline uint32_t Box64SOC_GetGPUPowerLevel(void) { return 0; }
+static inline bool Box64SOC_HasBigLittle(void) { return false; }
+static inline uint32_t Box64SOC_GetRecommendedCores(uint32_t t) { (void)t; return 0; }
+static inline int Box64SOC_SetThreadAffinity(uint32_t m) { (void)m; return -1; }
+static inline int Box64SOC_SetThreadAffinitySingle(uint32_t c) { (void)c; return -1; }
+static inline int Box64SOC_GetCurrentCore(void) { return -1; }
+static inline bool Box64SOC_IsThermalThrottling(void) { return false; }
+static inline int Box64SOC_GetThermalZoneTemp(int z) { (void)z; return 0; }
+static inline uint64_t Box64SOC_GetAvailableMemory(void) { return 0; }
+static inline bool Box64SOC_IsLowMemory(void) { return false; }
+static inline void Box64SOC_Destroy(void) {}
+
+#endif // ARM check
 
 #endif // __BOX64_SOC_H_
