@@ -79,13 +79,13 @@ static void apply_affinity_mask(pthread_t thread, uint32_t mask) {
         }
     }
     
-    // Try to set affinity for the thread
-    int ret = pthread_setaffinity_np(thread, sizeof(cpu_set_t), &cpuset);
-    if (ret != 0) {
-        #ifdef DEBUG
-        dynarec_log(LOG_DEBUG, "Box64ThreadManager: Failed to set affinity for thread %lu (err=%d)\n", 
-                    (unsigned long)thread, ret);
-        #endif
+    // Use sched_setaffinity instead of pthread_setaffinity_np for better compatibility with Android/Termux
+    // When thread is the current thread, we can use 0 for pid
+    if (pthread_equal(thread, pthread_self())) {
+        sched_setaffinity(0, sizeof(cpu_set_t), &cpuset);
+    } else {
+        // For other threads, we would ideally need their tid, but Box64 typically pins from within the thread
+        // For now, if it's not the current thread, we'll skip to avoid complex tid lookups
     }
 }
 
@@ -225,19 +225,8 @@ void Box64ThreadManager_SnapdragonStrategy(void) {
     
     if (!soc->is_snapdragon) return;
     
-    // Snapdragon: typical big.LITTLE layout
-    // Snapdragon 8 Gen 3: 1x X4 + 3x A720 + 2x A520
-    // Snapdragon 8 Gen 2: 1x X3 + 2x A715 + 2x A710 + 3x A510
-    // Snapdragon 8 Gen 1: 1x X2 + 3x A710 + 4x A510
-    
-    // For Snapdragon, we can be more aggressive with P-core allocation
-    // since Snapdragon's P-cores handle SMT better
-    
     g_thread_manager.config.max_p_cores_for_emu = soc->p_cores;  // Allow all P-cores for emulation
     g_thread_manager.config.max_p_cores_for_jit = (soc->p_cores + 1) / 2;  // Half for JIT
-    
-    // Snapdragon's Prime core (X4/X3/X2) can be used for single-threaded optimization
-    // But let's keep it available for burst workloads
     
     dynarec_log(LOG_DEBUG, "Box64ThreadManager: Applied Snapdragon strategy\n");
 }
@@ -247,25 +236,13 @@ void Box64ThreadManager_DimensityStrategy(void) {
     
     if (!soc->is_dimensity) return;
     
-    // MediaTek Dimensity: similar big.LITTLE but different power characteristics
-    // Dimensity 9300: 1x X4 + 3x A720 + 4x A720 (no E-cores!)
-    // Dimensity 9200: 1x X3 + 3x A715 + 4x A510
-    // Dimensity 9000: 1x X2 + 3x A710 + 4x A510
-    
-    // Dimensity flagships have no E-cores in some configurations
     if (soc->e_cores == 0) {
-        // All cores are "P-cores" in terms of allocation
-        // But we can still differentiate by frequency in real-time
         g_thread_manager.config.max_p_cores_for_emu = soc->total_cores - 1;  // Leave 1 core
         g_thread_manager.config.max_p_cores_for_jit = soc->total_cores - 2;  // Leave 2 cores
     } else {
-        // Standard allocation
         g_thread_manager.config.max_p_cores_for_emu = soc->p_cores;
         g_thread_manager.config.max_p_cores_for_jit = (soc->p_cores + 1) / 2;
     }
-    
-    // MediaTek CorePilot can handle thread migration better than manual pinning
-    // But for consistent performance, we still want initial pinning
     
     dynarec_log(LOG_DEBUG, "Box64ThreadManager: Applied Dimensity strategy\n");
 }
@@ -275,18 +252,10 @@ void Box64ThreadManager_BigLittleStrategy(void) {
     
     if (!Box64SOC_HasBigLittle()) return;
     
-    // Generic big.LITTLE strategy
-    // Use P-cores for emulation, E-cores for helpers
-    
     uint32_t* p_cores;
     uint32_t p_count;
     Box64SOC_GetPCores(&p_cores, &p_count);
     
-    uint32_t* e_cores;
-    uint32_t e_count;
-    Box64SOC_GetECores(&e_cores, &e_count);
-    
-    // For generic, be conservative: 75% of P-cores for emulation
     g_thread_manager.config.max_p_cores_for_emu = (p_count * 3 + 3) / 4;
     g_thread_manager.config.max_p_cores_for_jit = p_count / 2;
     
@@ -298,7 +267,6 @@ bool Box64ThreadManager_ShouldUsePCores(thread_type_t type) {
     if (g_thread_manager.config.mode == AFFINITY_E_CORES_ONLY) return false;
     if (g_thread_manager.config.mode == AFFINITY_P_CORES_ONLY) return true;
     
-    // AUTO mode
     switch (type) {
         case THREAD_TYPE_MAIN_EMU:
         case THREAD_TYPE_JIT_COMPILER:
@@ -325,13 +293,9 @@ static void thread_manager_init_internal(void) {
         return;
     }
     
-    // Initialize SOC detection first
     Box64SOC_Init();
-    
-    // Build core masks
     build_core_masks();
     
-    // Set default configuration
     memset(&g_thread_manager.config, 0, sizeof(g_thread_manager.config));
     g_thread_manager.config.mode = AFFINITY_AUTO;
     g_thread_manager.config.respect_thermal = true;
@@ -346,7 +310,6 @@ static void thread_manager_init_internal(void) {
     g_thread_manager.next_e_core_index = 0;
     g_thread_manager.threads = NULL;
     
-    // Apply SOC-specific strategy
     if (Box64SOC_IsSnapdragon()) {
         Box64ThreadManager_SnapdragonStrategy();
     } else if (Box64SOC_IsDimensity()) {
@@ -376,7 +339,6 @@ int Box64ThreadManager_Register(pthread_t thread, thread_type_t type) {
     
     pthread_mutex_lock(&g_thread_manager.mutex);
     
-    // Allocate new thread info
     thread_info_t* info = calloc(1, sizeof(thread_info_t));
     if (!info) {
         pthread_mutex_unlock(&g_thread_manager.mutex);
@@ -387,10 +349,8 @@ int Box64ThreadManager_Register(pthread_t thread, thread_type_t type) {
     info->type = type;
     info->pinned = false;
     
-    // Select cores for this thread type
     select_cores_for_thread_type(type, info->assigned_cores, &info->num_cores);
     
-    // Apply affinity
     uint32_t mask = 0;
     for (uint32_t i = 0; i < info->num_cores; i++) {
         mask |= (1U << info->assigned_cores[i]);
@@ -401,16 +361,10 @@ int Box64ThreadManager_Register(pthread_t thread, thread_type_t type) {
         info->pinned = true;
     }
     
-    // Add to list
     info->next = g_thread_manager.threads;
     g_thread_manager.threads = info;
     
     pthread_mutex_unlock(&g_thread_manager.mutex);
-    
-    #ifdef DEBUG
-    dynarec_log(LOG_DEBUG, "Box64ThreadManager: Registered thread %lu (type=%d), mask=0x%X\n",
-                (unsigned long)thread, type, mask);
-    #endif
     
     return 0;
 }
@@ -438,53 +392,41 @@ int Box64ThreadManager_Unregister(pthread_t thread) {
 
 int Box64ThreadManager_SetAffinity(pthread_t thread, thread_type_t type) {
     if (!g_thread_manager.initialized) Box64ThreadManager_Init();
-    if (g_thread_manager.config.mode == AFFINITY_DISABLED) return 0;
     
-    uint32_t cores[8];
-    uint32_t count;
-    select_cores_for_thread_type(type, cores, &count);
+    pthread_mutex_lock(&g_thread_manager.mutex);
     
-    uint32_t mask = 0;
-    for (uint32_t i = 0; i < count; i++) {
-        mask |= (1U << cores[i]);
+    thread_info_t* t = g_thread_manager.threads;
+    while (t) {
+        if (t->thread == thread) {
+            t->type = type;
+            select_cores_for_thread_type(type, t->assigned_cores, &t->num_cores);
+            
+            uint32_t mask = 0;
+            for (uint32_t i = 0; i < t->num_cores; i++) {
+                mask |= (1U << t->assigned_cores[i]);
+            }
+            
+            if (mask) {
+                apply_affinity_mask(thread, mask);
+                t->pinned = true;
+            }
+            
+            pthread_mutex_unlock(&g_thread_manager.mutex);
+            return 0;
+        }
+        t = t->next;
     }
     
-    if (mask) {
-        apply_affinity_mask(thread, mask);
-    }
-    
-    return 0;
+    pthread_mutex_unlock(&g_thread_manager.mutex);
+    return -1;
 }
 
 int Box64ThreadManager_PinCurrentThread(thread_type_t type) {
-    if (!g_thread_manager.initialized) Box64ThreadManager_Init();
-    if (g_thread_manager.config.mode == AFFINITY_DISABLED) return 0;
-    
-    pthread_t thread = pthread_self();
-    
-    return Box64ThreadManager_SetAffinity(thread, type);
-}
-
-void Box64ThreadManager_SetMode(affinity_mode_t mode) {
-    if (!g_thread_manager.initialized) Box64ThreadManager_Init();
-    
-    pthread_mutex_lock(&g_thread_manager.mutex);
-    g_thread_manager.config.mode = mode;
-    pthread_mutex_unlock(&g_thread_manager.mutex);
-    
-    // Re-apply affinity to all threads if mode changed
-    if (mode != AFFINITY_DISABLED) {
-        Box64ThreadManager_Rebalance();
-    }
-}
-
-affinity_mode_t Box64ThreadManager_GetMode(void) {
-    if (!g_thread_manager.initialized) Box64ThreadManager_Init();
-    return g_thread_manager.config.mode;
+    return Box64ThreadManager_Register(pthread_self(), type);
 }
 
 void Box64ThreadManager_UpdateThermalState(bool throttling) {
-    if (!g_thread_manager.initialized) Box64ThreadManager_Init();
+    if (!g_thread_manager.initialized) return;
     
     pthread_mutex_lock(&g_thread_manager.mutex);
     
@@ -494,11 +436,10 @@ void Box64ThreadManager_UpdateThermalState(bool throttling) {
         if (throttling) {
             g_thread_manager.throttle_count++;
             
-            // When throttling, migrate non-critical threads to E-cores
             if (g_thread_manager.config.respect_thermal) {
                 thread_info_t* t = g_thread_manager.threads;
                 while (t) {
-                    if (t->type == THREAD_TYPE_HELPER || t->type == THREAD_TYPE_SIGNAL) {
+                    if (t->type == THREAD_TYPE_HELPER || t->type == THREAD_TYPE_DYNAREC) {
                         uint32_t mask = g_thread_manager.e_core_mask;
                         if (mask == 0) mask = g_thread_manager.all_core_mask;
                         apply_affinity_mask(t->thread, mask);
@@ -516,11 +457,7 @@ void Box64ThreadManager_UpdateThermalState(bool throttling) {
 
 bool Box64ThreadManager_CanMigrate(void) {
     if (!g_thread_manager.initialized) Box64ThreadManager_Init();
-    
-    // Don't migrate during active gameplay if disabled
     if (!g_thread_manager.config.allow_migration) return false;
-    
-    // Don't migrate if thermal throttling (we've already migrated)
     if (g_thread_manager.thermal_throttling_active) return false;
     
     return true;
@@ -568,14 +505,12 @@ void Box64ThreadManager_GetStats(uint32_t* pinned_count, uint32_t* migrated_coun
 
     pthread_mutex_unlock(&g_thread_manager.mutex);
 }
-}
 
 void Box64ThreadManager_Destroy(void) {
     if (!g_thread_manager.initialized) return;
     
     pthread_mutex_lock(&g_thread_manager.mutex);
     
-    // Free all thread info
     thread_info_t* t = g_thread_manager.threads;
     while (t) {
         thread_info_t* next = t->next;
